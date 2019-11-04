@@ -2,7 +2,7 @@ package autorotate
 
 import (
 	"errors"
-	"fmt"
+	"github.com/AnatolyRugalev/libinput-xrandr-autorotate/pkg/accelerometer"
 	"github.com/AnatolyRugalev/libinput-xrandr-autorotate/pkg/exec"
 	"strconv"
 	"strings"
@@ -10,39 +10,43 @@ import (
 )
 
 type Orientation string
-type LibInputCoordinates [9]int
+type Axis int
+type XInputCoordinates [9]int
 
 const (
 	OrientationNormal   = Orientation("normal")
 	OrientationInverted = Orientation("inverted")
 	OrientationLeft     = Orientation("left")
 	OrientationRight    = Orientation("right")
+
+	AxisX = Axis(iota)
+	AxisY
 )
 
-var orientationMap = map[Orientation]LibInputCoordinates{
+var orientationMap = map[Orientation]XInputCoordinates{
 	OrientationNormal:   {1, 0, 0, 0, 1, 0, 0, 0, 1},
 	OrientationInverted: {-1, 0, 1, 0, -1, 1, 0, 0, 1},
 	OrientationLeft:     {0, -1, 1, 1, 0, 0, 0, 0, 1},
 	OrientationRight:    {0, 1, 0, -1, 0, 1, 0, 0, 1},
 }
 
-var autodetectKeywords = []string{
+var AutodetectKeywords = []string{
 	"Wacom HID",
 }
 
 type edge struct {
-	y   bool
-	min float64
-	max float64
+	axis Axis
+	min  float64
+	max  float64
 }
 
-func SetOrientation(devices []string, display string, orientation Orientation) error {
-	if err := xrandrCommand(orientation, display); err != nil {
+func (a Autorotate) SetOrientation(orientation Orientation) error {
+	if err := xrandrCommand(orientation, a.display); err != nil {
 		return err
 	}
 
-	for _, device := range devices {
-		if err := xinputCommand(orientation, device); err != nil {
+	for _, touchscreen := range a.touchscreens {
+		if err := xinputCommand(orientation, touchscreen); err != nil {
 			return err
 		}
 	}
@@ -54,15 +58,15 @@ func xrandrCommand(orientation Orientation, display string) error {
 	return err
 }
 
-func xinputCommand(orientation Orientation, device string) error {
-	matrix := CoordinatesToString(orientationMap[orientation])
-	args := []string{"set-prop", device, "Coordinate Transformation Matrix"}
+func xinputCommand(orientation Orientation, touchscreen string) error {
+	matrix := xinputString(orientationMap[orientation])
+	args := []string{"set-prop", touchscreen, "Coordinate Transformation Matrix"}
 	args = append(args, matrix...)
 	_, err := exec.ExecuteCommand("xinput", args...)
 	return err
 }
 
-func CoordinatesToString(coords LibInputCoordinates) []string {
+func xinputString(coords XInputCoordinates) []string {
 	var strs []string
 	for _, val := range coords {
 		strs = append(strs, strconv.Itoa(val))
@@ -70,7 +74,7 @@ func CoordinatesToString(coords LibInputCoordinates) []string {
 	return strs
 }
 
-func GetTouchScreens() ([]string, error) {
+func DetectTouchScreens() ([]string, error) {
 	namesStr, err := exec.ExecuteCommand("xinput", "list", "--name-only")
 	if err != nil {
 		return nil, err
@@ -78,7 +82,7 @@ func GetTouchScreens() ([]string, error) {
 	var screens []string
 	names := strings.Split(namesStr, "\n")
 	for _, name := range names {
-		for _, kw := range autodetectKeywords {
+		for _, kw := range AutodetectKeywords {
 			if strings.Contains(name, kw) {
 				screens = append(screens, name)
 				break
@@ -91,109 +95,70 @@ func GetTouchScreens() ([]string, error) {
 	return screens, err
 }
 
-type value struct {
-	x float64
-	y float64
+func (a Autorotate) GetOrientationEdges() map[Orientation]edge {
+	return map[Orientation]edge{
+		OrientationNormal: {
+			axis: AxisY,
+			min:  -100.0,
+			max:  -a.threshold,
+		},
+		OrientationInverted: {
+			axis: AxisY,
+			min:  a.threshold,
+			max:  100.0,
+		},
+		OrientationLeft: {
+			axis: AxisX,
+			min:  a.threshold,
+			max:  100.0,
+		},
+		OrientationRight: {
+			axis: AxisX,
+			min:  -100.0,
+			max:  -a.threshold,
+		},
+	}
 }
 
-type state struct {
-	orientation    Orientation
-	newOrientation *Orientation
-	display        string
-	touchscreens   []string
-	ticks          int
-	maxTicks       int
-	threshold      float64
-}
-
-func Watch(stop <-chan struct{}, display string, touchscreens []string, accelerometer string, threshold float64, refreshRate time.Duration, ticks int) error {
-	reader := NewReader(accelerometer)
+func (a *Autorotate) Watch(stop <-chan struct{}) error {
+	reader := accelerometer.NewReader(a.accelerometer)
 	err := reader.Init()
 	if err != nil {
 		return err
 	}
-	vals := make(chan value)
-	go reader.Read(refreshRate, stop, vals)
-	state := &state{
-		orientation:  OrientationNormal,
-		display:      display,
-		touchscreens: touchscreens,
-		maxTicks:     ticks,
-		threshold:    threshold,
+	vals := make(chan accelerometer.Value)
+	go reader.Read(a.refreshRate, stop, vals)
+	a.state = &state{
+		autorotate:  a,
+		orientation: OrientationNormal,
 	}
 	for {
 		select {
 		case <-stop:
 			return nil
 		case val := <-vals:
-			state.update(val)
+			a.state.update(val)
 		}
 	}
 }
 
-func GetOrientationEdges(threshold float64) map[Orientation]edge {
-	return map[Orientation]edge{
-		OrientationNormal: {
-			y:   true,
-			min: -100.0,
-			max: -threshold,
-		},
-		OrientationInverted: {
-			y:   true,
-			min: threshold,
-			max: 100.0,
-		},
-		OrientationLeft: {
-			y:   false,
-			min: threshold,
-			max: 100.0,
-		},
-		OrientationRight: {
-			y:   false,
-			min: -100.0,
-			max: -threshold,
-		},
-	}
+type Autorotate struct {
+	display       string
+	touchscreens  []string
+	accelerometer string
+	threshold     float64
+	refreshRate   time.Duration
+	maxTicks      int
+	state         *state
 }
 
-func (s state) detectOrientation(val value) Orientation {
-	for o, threshold := range GetOrientationEdges(s.threshold) {
-		if o == s.orientation {
-			continue
-		}
-		if threshold.y {
-			if val.y >= threshold.min &&
-				val.y < threshold.max {
-				return o
-			}
-		} else {
-			if val.x >= threshold.min &&
-				val.x < threshold.max {
-				return o
-			}
-		}
-	}
-	return s.orientation
-}
-
-func (s *state) update(val value) {
-	o := s.detectOrientation(val)
-	//fmt.Printf("x = %.4f y = %.4f z = %.4f o = %s\n", val.x, val.y, val.z, o)
-	if o != s.orientation {
-		if s.newOrientation == nil || *s.newOrientation != o {
-			s.newOrientation = &o
-			s.ticks = 0
-		} else {
-			s.ticks++
-			if s.ticks > s.maxTicks {
-				s.orientation = o
-				s.newOrientation = nil
-				s.ticks = 0
-				err := SetOrientation(s.touchscreens, s.display, o)
-				if err != nil {
-					fmt.Printf("Error changing orientation: %s\n", err.Error())
-				}
-			}
-		}
+func NewAutorotate(display string, touchscreens []string, accelerometerName string, threshold float64, refreshRate time.Duration, maxTicks int) *Autorotate {
+	return &Autorotate{
+		display:       display,
+		touchscreens:  touchscreens,
+		accelerometer: accelerometerName,
+		threshold:     threshold,
+		refreshRate:   refreshRate,
+		maxTicks:      maxTicks,
 	}
 }

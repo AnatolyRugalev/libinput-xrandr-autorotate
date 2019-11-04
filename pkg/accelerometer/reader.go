@@ -1,37 +1,14 @@
-package autorotate
+package accelerometer
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 )
-
-const (
-	AccelerometerHome = "/sys/bus/iio/devices"
-)
-
-func GetAccelerometer() (string, error) {
-	matches, err := filepath.Glob(AccelerometerHome + "/iio:device*/in_accel_x_raw")
-	if err != nil {
-		return "", err
-	}
-	if len(matches) == 0 {
-		return "", errors.New("no accelerometers found")
-	}
-	return strings.Replace(strings.Replace(matches[0], AccelerometerHome+"/", "", 1), "/in_accel_x_raw", "", 1), nil
-}
-
-func NewReader(accelerometer string) *Reader {
-	return &Reader{
-		accelerometer: accelerometer,
-	}
-}
 
 type Reader struct {
 	accelerometer string
@@ -41,7 +18,7 @@ type Reader struct {
 }
 
 func (r *Reader) openValueFile(name string) (*os.File, error) {
-	path := AccelerometerHome + "/" + r.accelerometer + "/in_accel_" + name
+	path := Home + "/" + r.accelerometer + "/in_accel_" + name
 	return os.OpenFile(path, os.O_RDONLY, 0)
 }
 
@@ -78,7 +55,7 @@ func (r *Reader) Init() error {
 	return nil
 }
 
-func (r *Reader) Read(refreshRate time.Duration, stop <-chan struct{}, vals chan<- value) {
+func (r *Reader) Read(refreshRate time.Duration, stop <-chan struct{}, vals chan<- Value) {
 	defer func() {
 		close(vals)
 		r.Close()
@@ -101,9 +78,9 @@ func (r *Reader) Read(refreshRate time.Duration, stop <-chan struct{}, vals chan
 			}
 			x *= r.scale
 			y *= r.scale
-			vals <- value{
-				x: x,
-				y: y,
+			vals <- Value{
+				X: x,
+				Y: y,
 			}
 			time.Sleep(refreshRate)
 		}
