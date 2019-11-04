@@ -30,6 +30,12 @@ var autodetectKeywords = []string{
 	"Wacom HID",
 }
 
+type edge struct {
+	y   bool
+	min float64
+	max float64
+}
+
 func SetOrientation(devices []string, display string, orientation Orientation) error {
 	if err := xrandrCommand(orientation, display); err != nil {
 		return err
@@ -88,7 +94,6 @@ func GetTouchScreens() ([]string, error) {
 type value struct {
 	x float64
 	y float64
-	z float64
 }
 
 type state struct {
@@ -101,11 +106,14 @@ type state struct {
 	threshold      float64
 }
 
-func Watch(exit <-chan struct{}, display string, touchscreens []string, accelerometer string, threshold float64, refreshRate time.Duration, ticks int) error {
-	vals, err := ReadValues(accelerometer, exit, refreshRate)
+func Watch(stop <-chan struct{}, display string, touchscreens []string, accelerometer string, threshold float64, refreshRate time.Duration, ticks int) error {
+	reader := NewReader(accelerometer)
+	err := reader.Init()
 	if err != nil {
 		return err
 	}
+	vals := make(chan value)
+	go reader.Read(refreshRate, stop, vals)
 	state := &state{
 		orientation:  OrientationNormal,
 		display:      display,
@@ -115,18 +123,12 @@ func Watch(exit <-chan struct{}, display string, touchscreens []string, accelero
 	}
 	for {
 		select {
-		case <-exit:
+		case <-stop:
 			return nil
 		case val := <-vals:
 			state.update(val)
 		}
 	}
-}
-
-type edge struct {
-	y   bool
-	min float64
-	max float64
 }
 
 func GetOrientationEdges(threshold float64) map[Orientation]edge {

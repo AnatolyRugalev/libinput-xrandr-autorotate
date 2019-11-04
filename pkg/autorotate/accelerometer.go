@@ -27,79 +27,90 @@ func GetAccelerometer() (string, error) {
 	return strings.Replace(strings.Replace(matches[0], AccelerometerHome+"/", "", 1), "/in_accel_x_raw", "", 1), nil
 }
 
-func OpenAccelerometerValueFile(accelerometer string, name string) (*os.File, error) {
-	path := AccelerometerHome + "/" + accelerometer + "/in_accel_" + name
+func NewReader(accelerometer string) *Reader {
+	return &Reader{
+		accelerometer: accelerometer,
+	}
+}
+
+type Reader struct {
+	accelerometer string
+	scale         float64
+	xf            *os.File
+	yf            *os.File
+}
+
+func (r *Reader) openValueFile(name string) (*os.File, error) {
+	path := AccelerometerHome + "/" + r.accelerometer + "/in_accel_" + name
 	return os.OpenFile(path, os.O_RDONLY, 0)
 }
 
-func readFloat(r io.ReadSeeker) (float64, error) {
-	_, err := r.Seek(0, io.SeekStart)
+func (r Reader) readFloat(f io.ReadSeeker) (float64, error) {
+	_, err := f.Seek(0, io.SeekStart)
 	if err != nil {
 		return 0.0, err
 	}
-	b, err := ioutil.ReadAll(r)
+	b, err := ioutil.ReadAll(f)
 	if err != nil {
 		return 0.0, err
 	}
 	return strconv.ParseFloat(strings.Trim(string(b), "\n"), 64)
 }
 
-func ReadValues(accelerometer string, exit <-chan struct{}, refreshRate time.Duration) (ch chan value, err error) {
-	ch = make(chan value, 1)
-	var sf, xf, yf, zf *os.File
-	if sf, err = OpenAccelerometerValueFile(accelerometer, "scale"); err != nil {
-		return
+func (r *Reader) Init() error {
+	sf, err := r.openValueFile("scale")
+	if err != nil {
+		return err
 	}
-	scale, err := readFloat(sf)
+	r.scale, err = r.readFloat(sf)
 	_ = sf.Close()
 	if err != nil {
-		return
+		return err
 	}
-	if xf, err = OpenAccelerometerValueFile(accelerometer, "x_raw"); err != nil {
-		return
+	r.xf, err = r.openValueFile("x_raw")
+	if err != nil {
+		return err
 	}
-	if yf, err = OpenAccelerometerValueFile(accelerometer, "y_raw"); err != nil {
-		return
+	r.yf, err = r.openValueFile("y_raw")
+	if err != nil {
+		return err
 	}
-	if zf, err = OpenAccelerometerValueFile(accelerometer, "z_raw"); err != nil {
-		return
-	}
-	go func() {
-		defer close(ch)
-		defer xf.Close()
-		defer yf.Close()
-		defer zf.Close()
-		for {
-			select {
-			case <-exit:
-				return
-			default:
-				x, err := readFloat(xf)
-				if err != nil {
-					fmt.Printf("Cannot read value: %s\n", err.Error())
-					return
-				}
-				y, err := readFloat(yf)
-				if err != nil {
-					fmt.Printf("Cannot read value: %s\n", err.Error())
-					return
-				}
-				z, err := readFloat(zf)
-				if err != nil {
-					fmt.Printf("Cannot read value: %s\n", err.Error())
-					return
-				}
-				x *= scale
-				y *= scale
-				z *= scale
-				ch <- value{
-					x: x,
-					y: y,
-					z: z,
-				}
-				time.Sleep(refreshRate)
-			}
-		}
+	return nil
+}
+
+func (r *Reader) Read(refreshRate time.Duration, stop <-chan struct{}, vals chan<- value) {
+	defer func() {
+		close(vals)
+		r.Close()
 	}()
-	return ch, nil
+	for {
+		select {
+		case <-stop:
+			fmt.Printf("Read: stop")
+			return
+		default:
+			x, err := r.readFloat(r.xf)
+			if err != nil {
+				fmt.Printf("Cannot read value: %s\n", err.Error())
+				return
+			}
+			y, err := r.readFloat(r.yf)
+			if err != nil {
+				fmt.Printf("Cannot read value: %s\n", err.Error())
+				return
+			}
+			x *= r.scale
+			y *= r.scale
+			vals <- value{
+				x: x,
+				y: y,
+			}
+			time.Sleep(refreshRate)
+		}
+	}
+}
+
+func (r *Reader) Close() {
+	_ = r.xf.Close()
+	_ = r.yf.Close()
 }
