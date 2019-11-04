@@ -9,7 +9,7 @@ license=('GPLv3')
 arch=('x86_64')
 depends=()
 
-source=("https://github.com/AnatolyRugalev/libinput-xrandr-autorotate/releases/download/${pkgver}/libinput-xrandr-autorotate_${pkgver}_Linux_x86_64.tar.gz")
+source=("https://github.com/AnatolyRugalev/libinput-xrandr-autorotate/releases/download/${pkgver}/libinput-xrandr-autorotate_${pkgver}_Linux_amd64.tar.gz")
 sha256sums=('${SHA256SUM}')
 package() {
   cd "$srcdir"
