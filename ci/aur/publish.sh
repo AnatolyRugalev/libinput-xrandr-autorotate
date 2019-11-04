@@ -29,6 +29,6 @@ envsubst '$TAG $TAG_RELEASE $SHA256SUM' < PKGBUILD.template > .pkg/PKGBUILD
 cp -f libinput-xrandr-autorotate.service .pkg/libinput-xrandr-autorotate.service
 
 cd ${DIR}/.pkg
-git add .SRCINFO PKGBUILD
+git add .SRCINFO PKGBUILD libinput-xrandr-autorotate.service
 git commit -m "Updated to version ${TAG} release ${TAG_RELEASE}"
 git push origin master
