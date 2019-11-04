@@ -9,8 +9,8 @@ license=('GPLv3')
 arch=('x86_64')
 depends=()
 
-source=("https://github.com/AnatolyRugalev/libinput-xrandr-autorotate/releases/download/${pkgver}/libinput-xrandr-autorotate_${pkgver}_Linux_amd64.tar.gz", "libinput-xrandr-autorotate.service")
-sha256sums=('${SHA256SUM}', 'skip')
+source=("https://github.com/AnatolyRugalev/libinput-xrandr-autorotate/releases/download/${pkgver}/libinput-xrandr-autorotate_${pkgver}_Linux_amd64.tar.gz" "libinput-xrandr-autorotate.service")
+sha256sums=('${SHA256SUM}' 'skip')
 package() {
   cd "$srcdir"
   install -d "$pkgdir/usr/bin"
