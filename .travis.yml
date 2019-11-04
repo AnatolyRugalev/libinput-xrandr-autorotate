@@ -1,0 +1,26 @@
+language: go
+
+go:
+  - "1.13"
+
+after_success:
+  # Install AUR ssh key
+  - mkdir -p ~/.ssh
+  - openssl aes-256-cbc -K $encrypted_539467f650e3_key -iv $encrypted_539467f650e3_iv -in ci/aur/id_rsa.enc -out ~/.ssh/id_rsa -d
+  - chmod 600 ~/.ssh/id_rsa
+
+if: tag IS present
+
+deploy:
+  - provider: script
+    skip_cleanup: true
+    script: curl -sL https://git.io/goreleaser | bash
+    on:
+      tags: true
+      condition: $TRAVIS_OS_NAME = linux
+  - provider: script
+    skip_cleanup: true
+    script: ci/aur/publish.sh
+    on:
+      tags: true
+      condition: $TRAVIS_OS_NAME = linux

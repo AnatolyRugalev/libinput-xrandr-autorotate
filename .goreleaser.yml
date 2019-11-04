@@ -1,0 +1,27 @@
+before:
+  hooks:
+    - go mod download
+builds:
+- main: ./cmd/libinput-xrandr-autorotate/main.go
+  env:
+  - CGO_ENABLED=0
+  - GO111MODULE=on
+  goos:
+    - linux
+  goarch:
+    - amd64
+  hooks:
+    pre: ci/aur/set-tag.sh {{.Version}}
+archives:
+- replacements:
+    linux: Linux
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ .Tag }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+    - '^docs:'
+    - '^test:'
