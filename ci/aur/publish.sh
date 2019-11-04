@@ -26,6 +26,7 @@ fi
 
 envsubst '$TAG $TAG_RELEASE $SHA256SUM' < .SRCINFO.template > .pkg/.SRCINFO
 envsubst '$TAG $TAG_RELEASE $SHA256SUM' < PKGBUILD.template > .pkg/PKGBUILD
+cp -f libinput-xrandr-autorotate.service .pkg/libinput-xrandr-autorotate.service
 
 cd ${DIR}/.pkg
 git add .SRCINFO PKGBUILD
