@@ -9,4 +9,3 @@ pkgbase = libinput-xrandr-autorotate
 	sha256sums = ${SHA256SUM}
 
 pkgname = libinput-xrandr-autorotate
-
