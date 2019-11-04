@@ -15,5 +15,5 @@ package() {
   cd "$srcdir"
   install -d "$pkgdir/usr/bin"
   install -m755 libinput-xrandr-autorotate "$pkgdir/usr/bin/libinput-xrandr-autorotate"
-  install -DT -m0755 "$srcdir/libinput-xrandr-autorotate.service" "$pkgdir/usr/lib/systemd/system/libinput-xrandr-autorotate.service"
+  install -DT -m0755 "$srcdir/libinput-xrandr-autorotate.service" "$pkgdir/usr/lib/systemd/user/libinput-xrandr-autorotate.service"
 }
