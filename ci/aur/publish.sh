@@ -11,7 +11,7 @@ rm -rf .pkg
 git clone aur@aur.archlinux.org:libinput-xrandr-autorotate .pkg
 
 export TAG=$(cat .tag)
-NAME=libinput-xrandr-autorotate_${TAG}_Linux_x86_64.tar.gz
+NAME=libinput-xrandr-autorotate_${TAG}_Linux_amd64.tar.gz
 ARCHIVE=$(dirname $(dirname ${DIR}))/dist/${NAME}
 export SHA256SUM=$(sha256sum ${ARCHIVE} | awk '{ print $1 }')
 
