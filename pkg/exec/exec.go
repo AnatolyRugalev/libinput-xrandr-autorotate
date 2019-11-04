@@ -9,7 +9,7 @@ import (
 )
 
 func ExecuteCommand(name string, args ...string) (string, error) {
-	fmt.Printf("> Executing command: %s, %s\n", name, strings.Join(args, " "))
+	fmt.Printf("> Executing command: %s %s\n", name, strings.Join(args, " "))
 	cmd := exec.Command(name, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: false,
@@ -20,6 +20,7 @@ func ExecuteCommand(name string, args ...string) (string, error) {
 	cmd.Stderr = buf
 	err := cmd.Run()
 	if err != nil {
+		fmt.Println(buf.String())
 		fmt.Printf("> Error: %s\n", err.Error())
 		return buf.String(), err
 	}
