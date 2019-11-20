@@ -1,6 +1,7 @@
 package accelerometer
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -55,14 +56,14 @@ func (r *Reader) Init() error {
 	return nil
 }
 
-func (r *Reader) Read(refreshRate time.Duration, stop <-chan struct{}, vals chan<- Value) {
+func (r *Reader) Read(ctx context.Context, refreshRate time.Duration, vals chan<- Value) {
 	defer func() {
 		close(vals)
 		r.Close()
 	}()
 	for {
 		select {
-		case <-stop:
+		case <-ctx.Done():
 			fmt.Printf("Read: stop")
 			return
 		default:

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"github.com/AnatolyRugalev/libinput-xrandr-autorotate/pkg/accelerometer"
@@ -42,12 +43,12 @@ func main() {
 	}
 	auto := autorotate.NewAutorotate(*display, devices, *accelerometerName, *threshold, time.Millisecond*time.Duration(*refreshRate), *ticks)
 	exit := make(chan os.Signal, 1)
-	stop := make(chan struct{})
 	wg := sync.WaitGroup{}
 	wg.Add(1)
+	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		defer wg.Done()
-		err := auto.Watch(stop)
+		err := auto.Watch(ctx)
 		if err != nil {
 			fmt.Printf("Error starting watcher: %s", err.Error())
 			os.Exit(1)
@@ -56,7 +57,7 @@ func main() {
 	signal.Notify(exit, syscall.SIGINT)
 	select {
 	case <-exit:
-		close(stop)
+		cancel()
 		break
 	}
 	wg.Wait()

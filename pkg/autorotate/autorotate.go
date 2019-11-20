@@ -1,6 +1,7 @@
 package autorotate
 
 import (
+	"context"
 	"errors"
 	"github.com/AnatolyRugalev/libinput-xrandr-autorotate/pkg/accelerometer"
 	"github.com/AnatolyRugalev/libinput-xrandr-autorotate/pkg/exec"
@@ -120,21 +121,21 @@ func (a Autorotate) GetOrientationEdges() map[Orientation]edge {
 	}
 }
 
-func (a *Autorotate) Watch(stop <-chan struct{}) error {
+func (a *Autorotate) Watch(ctx context.Context) error {
 	reader := accelerometer.NewReader(a.accelerometer)
 	err := reader.Init()
 	if err != nil {
 		return err
 	}
 	vals := make(chan accelerometer.Value)
-	go reader.Read(a.refreshRate, stop, vals)
+	go reader.Read(ctx, a.refreshRate, vals)
 	a.state = &state{
 		autorotate:  a,
 		orientation: OrientationNormal,
 	}
 	for {
 		select {
-		case <-stop:
+		case <-ctx.Done():
 			return nil
 		case val := <-vals:
 			a.state.update(val)
