@@ -15,6 +15,7 @@ type Axis int
 type XInputCoordinates [9]int
 
 const (
+	OrientationUnknown  = Orientation("unknown")
 	OrientationNormal   = Orientation("normal")
 	OrientationInverted = Orientation("inverted")
 	OrientationLeft     = Orientation("left")
@@ -131,7 +132,7 @@ func (a *Autorotate) Watch(ctx context.Context) error {
 	go reader.Read(ctx, a.refreshRate, vals)
 	a.state = &state{
 		autorotate:  a,
-		orientation: OrientationNormal,
+		orientation: OrientationUnknown,
 	}
 	for {
 		select {
