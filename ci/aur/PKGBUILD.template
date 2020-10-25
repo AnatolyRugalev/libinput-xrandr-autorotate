@@ -7,7 +7,7 @@ pkgdesc="Allows to rotate screen and touch input for 2-in-1 laptops"
 url="https://github.com/AnatolyRugalev/libinput-xrandr-autorotate"
 license=('GPLv3')
 arch=('x86_64')
-depends=()
+depends=('xorg-xinput')
 
 source=("https://github.com/AnatolyRugalev/libinput-xrandr-autorotate/releases/download/${pkgver}/libinput-xrandr-autorotate_${pkgver}_Linux_amd64.tar.gz" "libinput-xrandr-autorotate.service")
 sha256sums=('${SHA256SUM}' 'SKIP')
